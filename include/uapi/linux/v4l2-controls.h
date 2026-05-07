@@ -1341,5 +1341,16 @@ enum v4l2_deemphasis {
 };
 
 #define V4L2_CID_RDS_RECEPTION			(V4L2_CID_FM_RX_CLASS_BASE + 2)
+/* --- Backward compatibility for legacy Qualcomm video HALs --- */
 
+/* Old HAL expects EXTRADATA_METADATA_MBI as a raw value (0x4) */
+#ifndef EXTRADATA_METADATA_MBI
+#define EXTRADATA_METADATA_MBI 0x4
+#endif
+
+/* Old HAL uses V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO
+ * which is now called V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO */
+#ifndef V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO
+#endif
 #endif

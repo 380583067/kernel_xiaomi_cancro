@@ -5,28 +5,34 @@
 
 struct msm_vidc_extradata_header {
 	unsigned int size;
-	unsigned int:32; /** Keeping binary compatibility */
-	unsigned int:32; /* with firmware and OpenMAX IL **/
-	unsigned int type; /* msm_vidc_extradata_type */
+	unsigned int:32;
+	unsigned int:32;
+	unsigned int type;
 	unsigned int data_size;
 	unsigned char data[1];
 };
+
 struct msm_vidc_interlace_payload {
 	unsigned int format;
 };
+
 struct msm_vidc_framerate_payload {
 	unsigned int frame_rate;
 };
+
 struct msm_vidc_ts_payload {
 	unsigned int timestamp_lo;
 	unsigned int timestamp_hi;
 };
+
 struct msm_vidc_concealmb_payload {
 	unsigned int num_mbs;
 };
+
 struct msm_vidc_recoverysei_payload {
 	unsigned int flags;
 };
+
 struct msm_vidc_aspect_ratio_payload {
 	unsigned int size;
 	unsigned int version;
@@ -34,6 +40,7 @@ struct msm_vidc_aspect_ratio_payload {
 	unsigned int aspect_width;
 	unsigned int aspect_height;
 };
+
 struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int video_format;
 	unsigned int color_descp;
@@ -65,6 +72,7 @@ struct msm_vidc_input_crop_payload {
 	unsigned int width;
 	unsigned int height;
 };
+
 struct msm_vidc_digital_zoom_payload {
 	unsigned int size;
 	unsigned int version;
@@ -72,6 +80,7 @@ struct msm_vidc_digital_zoom_payload {
 	unsigned int zoom_width;
 	unsigned int zoom_height;
 };
+
 struct msm_vidc_extradata_index {
 	unsigned int type;
 	union {
@@ -80,27 +89,33 @@ struct msm_vidc_extradata_index {
 		struct msm_vidc_aspect_ratio_payload aspect_ratio;
 	};
 };
+
 struct msm_vidc_panscan_window {
 	unsigned int panscan_height_offset;
 	unsigned int panscan_width_offset;
 	unsigned int panscan_window_width;
 	unsigned int panscan_window_height;
 };
+
 struct msm_vidc_panscan_window_payload {
 	unsigned int num_panscan_windows;
 	struct msm_vidc_panscan_window wnd[1];
 };
+
 struct msm_vidc_stream_userdata_payload {
 	unsigned int type;
 	unsigned int data[1];
 };
+
 struct msm_vidc_frame_qp_payload {
 	unsigned int frame_qp;
 };
+
 struct msm_vidc_frame_bits_info_payload {
 	unsigned int frame_bits;
 	unsigned int header_bits;
 };
+
 struct msm_vidc_s3d_frame_packing_payload {
 	unsigned int fpa_id;
 	unsigned int cancel_flag;
@@ -175,17 +190,11 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_STREAM_USERDATA = 0x0000000E,
 	MSM_VIDC_EXTRADATA_FRAME_QP = 0x0000000F,
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
-#define MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI \
-	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI
 	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI = 0x00000015,
-#define MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI \
-	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI
 	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI = 0x00000016,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
-#define MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO \
-	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO
-	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO = 0x070000011,
+	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO = 0x07000011,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	MSM_VIDC_EXTRADATA_INDEX = 0x7F100002,
@@ -193,10 +202,9 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_METADATA_LTR = 0x7F100004,
 	MSM_VIDC_EXTRADATA_METADATA_FILLER = 0x7FE00002,
 	MSM_VIDC_EXTRADATA_METADATA_MBI = 0x7F100005,
-#define MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO \
-	MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO
 	MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO = 0x7F100006,
 };
+
 enum msm_vidc_interlace_type {
 	MSM_VIDC_INTERLACE_FRAME_PROGRESSIVE = 0x01,
 	MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST = 0x02,
@@ -204,6 +212,7 @@ enum msm_vidc_interlace_type {
 	MSM_VIDC_INTERLACE_FRAME_TOPFIELDFIRST = 0x08,
 	MSM_VIDC_INTERLACE_FRAME_BOTTOMFIELDFIRST = 0x10,
 };
+
 enum msm_vidc_framepack_type {
 	MSM_VIDC_FRAMEPACK_CHECKERBOARD = 0x00,
 	MSM_VIDC_FRAMEPACK_COLUMN_INTERLEAVE = 0x01,
@@ -212,17 +221,19 @@ enum msm_vidc_framepack_type {
 	MSM_VIDC_FRAMEPACK_TOP_BOTTOM = 0x04,
 	MSM_VIDC_FRAMEPACK_TEMPORAL_INTERLEAVE = 0x05,
 };
+
 enum msm_vidc_recovery_sei {
 	MSM_VIDC_FRAME_RECONSTRUCTION_INCORRECT = 0x0,
 	MSM_VIDC_FRAME_RECONSTRUCTION_CORRECT = 0x01,
 	MSM_VIDC_FRAME_RECONSTRUCTION_APPROXIMATELY_CORRECT = 0x02,
 };
+
 enum msm_vidc_userdata_type {
 	MSM_VIDC_USERDATA_TYPE_FRAME = 0x1,
 	MSM_VIDC_USERDATA_TYPE_TOP_FIELD = 0x2,
 	MSM_VIDC_USERDATA_TYPE_BOTTOM_FIELD = 0x3,
 };
-/* See colour_primaries of ISO/IEC 14496 for significance */
+
 enum msm_vidc_h264_color_primaries_values {
 	MSM_VIDC_RESERVED_1 = 0,
 	MSM_VIDC_BT709_5 = 1,
@@ -283,6 +294,7 @@ enum msm_vidc_h264_transfer_chars_values {
 	MSM_VIDC_TRANSFER_BT_2020_10 = 14,
 	MSM_VIDC_TRANSFER_BT_2020_12 = 15,
 };
+
 enum msm_vidc_video_format {
 	MSM_VIDC_COMPONENT,
 	MSM_VIDC_PAL,
@@ -293,8 +305,31 @@ enum msm_vidc_video_format {
 	MSM_VIDC_RESERVED_1_FORMAT,
 	MSM_VIDC_RESERVED_2_FORMAT,
 };
+
 enum msm_vidc_color_desc_flag {
 	MSM_VIDC_COLOR_DESC_NOT_PRESENT,
 	MSM_VIDC_COLOR_DESC_PRESENT,
 };
+
+#define INTERLACE_FRAME_PROGRESSIVE              MSM_VIDC_INTERLACE_FRAME_PROGRESSIVE
+#define INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST
+#define INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST
+#define FRAME_RECONSTRUCTION_CORRECT             MSM_VIDC_FRAME_RECONSTRUCTION_CORRECT
+
+#define EXTRADATA_NONE                           MSM_VIDC_EXTRADATA_NONE
+#define EXTRADATA_INTERLACE_VIDEO                MSM_VIDC_EXTRADATA_INTERLACE_VIDEO
+#define EXTRADATA_FRAME_RATE                     MSM_VIDC_EXTRADATA_FRAME_RATE
+#define EXTRADATA_TIMESTAMP                      MSM_VIDC_EXTRADATA_TIMESTAMP
+#define EXTRADATA_NUM_CONCEALED_MB               MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB
+#define EXTRADATA_INDEX                          MSM_VIDC_EXTRADATA_INDEX
+#define EXTRADATA_ASPECT_RATIO                   MSM_VIDC_EXTRADATA_ASPECT_RATIO
+#define EXTRADATA_RECOVERY_POINT_SEI             MSM_VIDC_EXTRADATA_RECOVERY_POINT_SEI
+#define EXTRADATA_PANSCAN_WINDOW                 MSM_VIDC_EXTRADATA_PANSCAN_WINDOW
+#define EXTRADATA_MPEG2_SEQDISP                  MSM_VIDC_EXTRADATA_MPEG2_SEQDISP
+#define EXTRADATA_S3D_FRAME_PACKING              MSM_VIDC_EXTRADATA_S3D_FRAME_PACKING
+#define EXTRADATA_FRAME_QP                       MSM_VIDC_EXTRADATA_FRAME_QP
+#define EXTRADATA_FRAME_BITS_INFO                MSM_VIDC_EXTRADATA_FRAME_BITS_INFO
+#define EXTRADATA_STREAM_USERDATA                MSM_VIDC_EXTRADATA_STREAM_USERDATA
+#define EXTRADATA_MBI                            MSM_VIDC_EXTRADATA_MBI
+
 #endif
