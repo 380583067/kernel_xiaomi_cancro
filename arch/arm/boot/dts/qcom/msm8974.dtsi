@@ -197,7 +197,7 @@
 	soc: soc { };
 };
 
-#include "msm8974-camera-xiaomi.dtsi"
+#include "msm8974-camera.dtsi"
 #include "msm8974-coresight.dtsi"
 #include "msm-gdsc.dtsi"
 #include "msm8974-ion.dtsi"
@@ -2259,68 +2259,25 @@ dai_mi2s: qcom,msm-dai-q6-mi2s-quat {
 	qcom,wcnss-wlan@fb000000 {
 		compatible = "qcom,wcnss_wlan";
 		reg = <0xfb000000 0x280000>,
-			<0xf9011008 0x04>,
-			<0xfb21b000 0x3000>,
-			<0x03204000 0x00000100>,
-			<0x03200800 0x00000200>,
-			<0xfb100400 0x00000200>,
-			<0xfb205050 0x00000200>,
-			<0xfb219000 0x00000020>,
-			<0xfb080488 0x00000008>,
-			<0xfb080fb0 0x00000008>,
-			<0xfb08040c 0x00000008>,
-			<0xfb0120a8 0x00000008>,
-			<0xfb012448 0x00000008>,
-			<0xfb080c00 0x00000001>;
-
-		reg-names = "wcnss_mmio", "wcnss_fiq",
-			    "pronto_phy_base", "riva_phy_base",
-			    "riva_ccu_base", "pronto_a2xb_base",
-			    "pronto_ccpu_base", "pronto_saw2_base",
-			    "wlan_tx_phy_aborts","wlan_brdg_err_source",
-			    "wlan_tx_status", "alarms_txctl",
-			    "alarms_tactl", "pronto_mcu_base";
-
+			<0xf9011008 0x04>;
+		reg-names = "wcnss_mmio", "wcnss_fiq";
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
 		qcom,pronto-vddmx-supply = <&pm8841_s1>;
-		qcom,pronto-vddcx-supply = <&pm8841_s2_corner>;
+		qcom,pronto-vddcx-supply = <&pm8841_s2>;
 		qcom,pronto-vddpx-supply = <&pm8941_s3>;
 		qcom,iris-vddxo-supply = <&pm8941_l6>;
 		qcom,iris-vddrfa-supply = <&pm8941_l11>;
 		qcom,iris-vddpa-supply = <&pm8941_l19>;
 		qcom,iris-vdddig-supply = <&pm8941_s3>;
 
-		qcom,iris-vddxo-voltage-level = <1800000 0 1800000>;
-		qcom,iris-vddrfa-voltage-level = <1300000 0 1300000>;
-		qcom,iris-vddpa-voltage-level = <3300000 0 3400000>;
-		qcom,iris-vdddig-voltage-level = <1225000 0 1800000>;
-
-		qcom,vddmx-voltage-level = <950000 0 1150000>;
-		qcom,vddcx-voltage-level = <5 1 7>;
-		qcom,vddpx-voltage-level = <1800000 0 1800000>;
-
-		qcom,iris-vddxo-current = <10000>;
-		qcom,iris-vddrfa-current = <100000>;
-		qcom,iris-vddpa-current = <515000>;
-		qcom,iris-vdddig-current = <10000>;
-
-		qcom,pronto-vddmx-current = <0>;
-		qcom,pronto-vddcx-current = <0>;
-		qcom,pronto-vddpx-current = <0>;
-
 		gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>, <&msmgpio 39 0>, <&msmgpio 40 0>;
-
-		clocks = <&clock_rpm clk_cxo_wlan_clk>,
-			 <&clock_rpm clk_cxo_a2>,
-			 <&clock_gcc clk_gcc_debug_mux>,
-			 <&clock_gcc clk_wcnss_m_clk>;
-		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
-
 		qcom,has-48mhz-xo;
 		qcom,has-pronto-hw;
 		qcom,wcnss-pm = <11 19 1200 1 1 6>;
+
+		firmware-name = "vendor/firmware/wlan/prima/WCNSS_qcom_wlan_nv_x4lte.bin";
 	};
 
 	qcom,ocmem@fdd00000 {
@@ -2643,11 +2600,12 @@ dai_mi2s: qcom,msm-dai-q6-mi2s-quat {
 		qcom,poll-ms = <250>;
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
+		qcom,therm-reset-temp = <115>;
 		qcom,freq-step = <2>;
-		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,freq-control-mask = <0xf>;
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-list = <&CPU1 &CPU2 &CPU3>;
+		qcom,core-control-mask = <0xe>;
 		qcom,hotplug-temp = <110>;
 		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor6",
@@ -2655,7 +2613,7 @@ dai_mi2s: qcom,msm-dai-q6-mi2s-quat {
 		qcom,freq-mitigation-temp = <110>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <960000>;
-		qcom,freq-mitigation-control-list = <&CPU0>;
+		qcom,freq-mitigation-control-mask = <0x01>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		qcom,pmic-sw-mode-temp = <85>;
@@ -2683,6 +2641,12 @@ dai_mi2s: qcom,msm-dai-q6-mi2s-quat {
 		};
 	};
 
+	qcom,msm-thermal-simple {
+		compatible = "qcom,msm-thermal-simple";
+		qcom,thermal-vadc = <&pm8941_vadc>;
+		qcom,adc-channel = <178>;
+	};
+
 	qcom,bam_dmux@fc834000 {
 		compatible = "qcom,bam_dmux";
 		reg = <0xfc834000 0x7000>;
@@ -2690,6 +2654,12 @@ dai_mi2s: qcom,msm-dai-q6-mi2s-quat {
 		qcom,rx-ring-size = <64>;
         qcom,fast-shutdown;
 	};
+
+        memory_hole: qcom,msm-mem-hole {
+                compatible = "qcom,msm-mem-hole";
+                qcom,memblock-remove = <0x5d00000 0x7d00000
+					0xfa00000 0x500000>; /* Address and Size of Hole */
+        };
 
 	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
 		compatible = "qcom,msm-hsuart-v14";
