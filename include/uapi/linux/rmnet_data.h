@@ -250,4 +250,6 @@ enum rmnet_config_return_codes_e {
 	RMNET_CONFIG_TC_HANDLE_FULL
 };
 
+#define RMNET_NETLINK_NEW_VND_WITH_NAME RMNET_NETLINK_NEW_VND_WITH_PREFIX
+
 #endif /* _RMNET_DATA_H_ */
