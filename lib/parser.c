@@ -127,26 +127,23 @@ int match_token(char *s, const match_table_t table, substring_t args[])
 static int match_number(substring_t *s, int *result, int base)
 {
 	char *endp;
-	char *buf;
+	char end;
 	int ret;
 	long val;
-	size_t len = s->to - s->from;
 
-	buf = kmalloc(len + 1, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-	memcpy(buf, s->from, len);
-	buf[len] = '\0';
+	/* @s is a span into the writable option string passed to match_token(). */
+	end = *s->to;
+	*s->to = '\0';
 
 	ret = 0;
-	val = simple_strtol(buf, &endp, base);
-	if (endp == buf)
+	val = simple_strtol(s->from, &endp, base);
+	*s->to = end;
+	if (endp == s->from)
 		ret = -EINVAL;
 	else if (val < (long)INT_MIN || val > (long)INT_MAX)
 		ret = -ERANGE;
 	else
 		*result = (int) val;
-	kfree(buf);
 	return ret;
 }
 

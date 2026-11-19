@@ -1144,7 +1144,10 @@ struct mdp_display_commit {
 	 *	2.1 split display: l_roi = l_roi and r_roi = r_roi
 	 *	2.2 non split display: l_roi = roi and r_roi = 0
 	 */
-	struct mdp_rect l_roi;
+	union {
+		struct mdp_rect l_roi;
+		struct mdp_rect roi;
+	};
 	struct mdp_rect r_roi;
 };
 

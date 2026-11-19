@@ -1796,21 +1796,15 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
             else
 #endif
             {
-                /* wpa supplicant expecting WPA/RSN IE in connect result */
-                csrRoamGetWpaRsnReqIE(WLAN_HDD_GET_HAL_CTX(pAdapter),
-                        pAdapter->sessionId,
-                        &reqRsnLength,
-                        reqRsnIe);
-
-                csrRoamGetWpaRsnRspIE(WLAN_HDD_GET_HAL_CTX(pAdapter),
-                        pAdapter->sessionId,
-                        &rspRsnLength,
-                        rspRsnIe);
                 if ( !hddDisconInProgress )
                 {
 #if  defined (FEATURE_WLAN_ESE) || defined(FEATURE_WLAN_LFR)
                     if(ft_carrier_on)
                     {
+                        if (csrRoamGetWpaRsnReqIE(WLAN_HDD_GET_HAL_CTX(pAdapter),
+                                pAdapter->sessionId, &reqRsnLength,
+                                reqRsnIe) != eHAL_STATUS_SUCCESS)
+                            reqRsnLength = 0;
                         hdd_SendReAssocEvent(dev, pAdapter, pRoamInfo, reqRsnIe, reqRsnLength);
                         if (pHddCtx->cfg_ini &&
                             pHddCtx->cfg_ini->gEnableRoamDelayStats)
@@ -1822,17 +1816,50 @@ static eHalStatus hdd_AssociationCompletionHandler( hdd_adapter_t *pAdapter, tCs
 #endif /* FEATURE_WLAN_ESE */
 
                     {
-                         hddLog(VOS_TRACE_LEVEL_INFO,
+                        const u8 *assocReqIes = reqRsnIe;
+                        const u8 *assocRspIes = rspRsnIe;
+
+                        /* Userspace needs the actual association IEs to
+                         * determine the negotiated HT/VHT capabilities.
+                         */
+                        if (pRoamInfo->pbFrames &&
+                            pRoamInfo->nAssocReqLength > FT_ASSOC_REQ_IES_OFFSET &&
+                            pRoamInfo->nAssocRspLength > FT_ASSOC_RSP_IES_OFFSET)
+                        {
+                            const u8 *assocReq = pRoamInfo->pbFrames +
+                                pRoamInfo->nBeaconLength;
+                            const u8 *assocRsp = assocReq +
+                                pRoamInfo->nAssocReqLength;
+
+                            assocReqIes = assocReq + FT_ASSOC_REQ_IES_OFFSET;
+                            assocRspIes = assocRsp + FT_ASSOC_RSP_IES_OFFSET;
+                            reqRsnLength = pRoamInfo->nAssocReqLength -
+                                FT_ASSOC_REQ_IES_OFFSET;
+                            rspRsnLength = pRoamInfo->nAssocRspLength -
+                                FT_ASSOC_RSP_IES_OFFSET;
+                        }
+                        else
+                        {
+                            if (csrRoamGetWpaRsnReqIE(WLAN_HDD_GET_HAL_CTX(pAdapter),
+                                    pAdapter->sessionId, &reqRsnLength,
+                                    reqRsnIe) != eHAL_STATUS_SUCCESS)
+                                reqRsnLength = 0;
+                            if (csrRoamGetWpaRsnRspIE(WLAN_HDD_GET_HAL_CTX(pAdapter),
+                                    pAdapter->sessionId, &rspRsnLength,
+                                    rspRsnIe) != eHAL_STATUS_SUCCESS)
+                                rspRsnLength = 0;
+                        }
+
+                        hddLog(VOS_TRACE_LEVEL_INFO,
                             "%s: sending connect indication to nl80211:"
                             " for bssid " MAC_ADDRESS_STR
                             " result:%d and Status:%d",
                             __func__, MAC_ADDR_ARRAY(pRoamInfo->bssid),
                             roamResult, roamStatus);
 
-                         /* inform connect result to nl80211 */
-                         cfg80211_connect_result(dev, pRoamInfo->bssid,
-                            reqRsnIe, reqRsnLength,
-                            rspRsnIe, rspRsnLength,
+                        cfg80211_connect_result(dev, pRoamInfo->bssid,
+                            assocReqIes, reqRsnLength,
+                            assocRspIes, rspRsnLength,
                             WLAN_STATUS_SUCCESS,
                             GFP_KERNEL);
                     }

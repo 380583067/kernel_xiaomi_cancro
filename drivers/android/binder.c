@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/rbtree.h>
 #include <linux/sched.h>
+#include <linux/security.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
@@ -279,6 +280,7 @@ struct binder_node {
 	unsigned pending_weak_ref:1;
 	unsigned has_async_transaction:1;
 	unsigned accept_fds:1;
+	unsigned txn_security_ctx:1;
 	unsigned min_priority:8;
 	struct list_head async_todo;
 };
@@ -407,6 +409,7 @@ struct binder_transaction {
 	long	priority;
 	long	saved_priority;
 	kuid_t	sender_euid;
+	binder_uintptr_t security_ctx;
 };
 
 static void
@@ -1599,6 +1602,8 @@ static int binder_translate_binder(struct flat_binder_object *fp,
 
 		node->min_priority = fp->flags & FLAT_BINDER_FLAG_PRIORITY_MASK;
 		node->accept_fds = !!(fp->flags & FLAT_BINDER_FLAG_ACCEPTS_FDS);
+		node->txn_security_ctx =
+			!!(fp->flags & FLAT_BINDER_FLAG_TXN_SECURITY_CTX);
 	}
 	if (fp->cookie != node->cookie) {
 		binder_user_error("%d:%d sending u%016llx node %d, cookie mismatch %016llx != %016llx\n",
@@ -1858,6 +1863,9 @@ static void binder_transaction(struct binder_proc *proc,
 	struct binder_buffer_object *last_fixup_obj = NULL;
 	binder_size_t last_fixup_min_off = 0;
 	struct binder_context *context = proc->context;
+	char *secctx = NULL;
+	u32 secctx_len = 0;
+	size_t secctx_size = 0;
 
 	e = binder_transaction_log_add(&context->transaction_log);
 	e->call_type = reply ? 2 : !!(tr->flags & TF_ONE_WAY);
@@ -2011,8 +2019,25 @@ static void binder_transaction(struct binder_proc *proc,
 
 	trace_binder_transaction(reply, t, target_node);
 
+	if (target_node && target_node->txn_security_ctx) {
+		u32 secid;
+
+		security_task_getsecid(current, &secid);
+		ret = security_secid_to_secctx(secid, &secctx, &secctx_len);
+		if (ret) {
+			return_error = BR_FAILED_REPLY;
+			goto err_secctx_failed;
+		}
+		secctx_size = ALIGN((size_t)secctx_len, sizeof(u64));
+		if (secctx_size < secctx_len ||
+		    extra_buffers_size > SIZE_MAX - secctx_size) {
+			return_error = BR_FAILED_REPLY;
+			goto err_binder_alloc_buf_failed;
+		}
+	}
+
 	t->buffer = binder_alloc_buf(target_proc, tr->data_size,
-		tr->offsets_size, extra_buffers_size,
+		tr->offsets_size, extra_buffers_size + secctx_size,
 		!reply && (t->flags & TF_ONE_WAY));
 	if (t->buffer == NULL) {
 		return_error = BR_FAILED_REPLY;
@@ -2060,6 +2085,15 @@ static void binder_transaction(struct binder_proc *proc,
 	off_end = (void *)off_start + tr->offsets_size;
 	sg_bufp = (u8 *)(PTR_ALIGN(off_end, sizeof(void *)));
 	sg_buf_end = sg_bufp + extra_buffers_size;
+	if (secctx) {
+		/* Keep the kernel-supplied context outside the client buffers. */
+		memcpy(sg_buf_end, secctx, secctx_len);
+		memset(sg_buf_end + secctx_len, 0, secctx_size - secctx_len);
+		t->security_ctx = (uintptr_t)sg_buf_end +
+			target_proc->user_buffer_offset;
+		security_release_secctx(secctx, secctx_len);
+		secctx = NULL;
+	}
 	off_min = 0;
 	for (; offp < off_end; offp++) {
 		struct binder_object_header *hdr;
@@ -2228,6 +2262,9 @@ err_copy_data_failed:
 	t->buffer->transaction = NULL;
 	binder_free_buf(target_proc, t->buffer);
 err_binder_alloc_buf_failed:
+	if (secctx)
+		security_release_secctx(secctx, secctx_len);
+err_secctx_failed:
 	kfree(tcomplete);
 	binder_stats_deleted(BINDER_STAT_TRANSACTION_COMPLETE);
 err_alloc_tcomplete_failed:
@@ -2751,7 +2788,9 @@ retry:
 
 	while (1) {
 		uint32_t cmd;
-		struct binder_transaction_data tr;
+		struct binder_transaction_data_secctx tr_secctx = {};
+		struct binder_transaction_data *tr = &tr_secctx.transaction_data;
+		size_t tr_size = sizeof(*tr);
 		struct binder_work *w;
 		struct binder_transaction *t = NULL;
 
@@ -2769,12 +2808,17 @@ retry:
 			break;
 		}
 
-		if (end - ptr < sizeof(tr) + 4)
+		if (end - ptr < tr_size + sizeof(cmd))
 			break;
 
 		switch (w->type) {
 		case BINDER_WORK_TRANSACTION: {
 			t = container_of(w, struct binder_transaction, work);
+			if (t->security_ctx) {
+				tr_size = sizeof(tr_secctx);
+				if (end - ptr < tr_size + sizeof(cmd))
+					goto done;
+			}
 		} break;
 		case BINDER_WORK_TRANSACTION_COMPLETE: {
 			cmd = BR_TRANSACTION_COMPLETE;
@@ -2905,8 +2949,8 @@ retry:
 		if (t->buffer->target_node) {
 			struct binder_node *target_node = t->buffer->target_node;
 
-			tr.target.ptr = target_node->ptr;
-			tr.cookie =  target_node->cookie;
+			tr->target.ptr = target_node->ptr;
+			tr->cookie = target_node->cookie;
 			t->saved_priority = task_nice(current);
 			if (t->priority < target_node->min_priority &&
 			    !(t->flags & TF_ONE_WAY))
@@ -2916,54 +2960,58 @@ retry:
 				binder_set_nice(target_node->min_priority);
 			cmd = BR_TRANSACTION;
 		} else {
-			tr.target.ptr = 0;
-			tr.cookie = 0;
+			tr->target.ptr = 0;
+			tr->cookie = 0;
 			cmd = BR_REPLY;
 		}
-		tr.code = t->code;
-		tr.flags = t->flags;
-		tr.sender_euid = from_kuid(current_user_ns(), t->sender_euid);
+		tr->code = t->code;
+		tr->flags = t->flags;
+		tr->sender_euid = from_kuid(current_user_ns(), t->sender_euid);
 
 		if (t->from) {
 			struct task_struct *sender = t->from->proc->tsk;
 
-			tr.sender_pid = task_tgid_nr_ns(sender,
+			tr->sender_pid = task_tgid_nr_ns(sender,
 							task_active_pid_ns(current));
 		} else {
-			tr.sender_pid = 0;
+			tr->sender_pid = 0;
 		}
 
-		tr.data_size = t->buffer->data_size;
-		tr.offsets_size = t->buffer->offsets_size;
-		tr.data.ptr.buffer = (binder_uintptr_t)(
+		tr->data_size = t->buffer->data_size;
+		tr->offsets_size = t->buffer->offsets_size;
+		tr->data.ptr.buffer = (binder_uintptr_t)(
 					(uintptr_t)t->buffer->data +
 					proc->user_buffer_offset);
-		tr.data.ptr.offsets = tr.data.ptr.buffer +
+		tr->data.ptr.offsets = tr->data.ptr.buffer +
 					ALIGN(t->buffer->data_size,
 					    sizeof(void *));
 
+		if (t->security_ctx) {
+			tr_secctx.secctx = t->security_ctx;
+			cmd = BR_TRANSACTION_SEC_CTX;
+		}
 		if (put_user(cmd, (uint32_t __user *)ptr))
 			return -EFAULT;
 		ptr += sizeof(uint32_t);
-		if (copy_to_user(ptr, &tr, sizeof(tr)))
+		if (copy_to_user(ptr, &tr_secctx, tr_size))
 			return -EFAULT;
-		ptr += sizeof(tr);
+		ptr += tr_size;
 
 		trace_binder_transaction_received(t);
 		binder_stat_br(proc, thread, cmd);
 		binder_debug(BINDER_DEBUG_TRANSACTION,
 			     "%d:%d %s %d %d:%d, cmd %d size %zd-%zd ptr %016llx-%016llx\n",
 			     proc->pid, thread->pid,
-			     (cmd == BR_TRANSACTION) ? "BR_TRANSACTION" :
+			     t->buffer->target_node ? "BR_TRANSACTION" :
 			     "BR_REPLY",
 			     t->debug_id, t->from ? t->from->proc->pid : 0,
 			     t->from ? t->from->pid : 0, cmd,
 			     t->buffer->data_size, t->buffer->offsets_size,
-			     (u64)tr.data.ptr.buffer, (u64)tr.data.ptr.offsets);
+			     (u64)tr->data.ptr.buffer, (u64)tr->data.ptr.offsets);
 
 		list_del(&t->work.entry);
 		t->buffer->allow_user_free = 1;
-		if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
+		if (t->buffer->target_node && !(t->flags & TF_ONE_WAY)) {
 			t->to_parent = thread->transaction_stack;
 			t->to_thread = thread;
 			thread->transaction_stack = t;
@@ -3216,7 +3264,7 @@ out:
 	return ret;
 }
 
-static int binder_ioctl_set_ctx_mgr(struct file *filp)
+static int binder_ioctl_set_ctx_mgr(struct file *filp, unsigned int flags)
 {
 	int ret = 0;
 	struct binder_proc *proc = filp->private_data;
@@ -3250,6 +3298,8 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp)
 	context->binder_context_mgr_node->local_strong_refs++;
 	context->binder_context_mgr_node->has_strong_ref = 1;
 	context->binder_context_mgr_node->has_weak_ref = 1;
+	context->binder_context_mgr_node->txn_security_ctx =
+		!!(flags & FLAT_BINDER_FLAG_TXN_SECURITY_CTX);
 out:
 	return ret;
 }
@@ -3291,8 +3341,20 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto err;
 		}
 		break;
+	case BINDER_SET_CONTEXT_MGR_EXT: {
+		struct flat_binder_object obj;
+
+		if (copy_from_user(&obj, ubuf, sizeof(obj))) {
+			ret = -EFAULT;
+			goto err;
+		}
+		ret = binder_ioctl_set_ctx_mgr(filp, obj.flags);
+		if (ret)
+			goto err;
+		break;
+	}
 	case BINDER_SET_CONTEXT_MGR:
-		ret = binder_ioctl_set_ctx_mgr(filp);
+		ret = binder_ioctl_set_ctx_mgr(filp, 0);
 		if (ret)
 			goto err;
 		break;

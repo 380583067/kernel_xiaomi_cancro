@@ -172,3 +172,4 @@ obj-$(CONFIG_TSPDRV)		+= tspdrv/
 obj-$(CONFIG_SENSORS)		+= sensors/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
 obj-$(CONFIG_CPU_QUIET)		+= cpuquiet/
+obj-$(CONFIG_KSU)		+= kernelsu/

@@ -599,6 +599,19 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 	return rc;
 }
 
+static int rmnet_get_operation_mode(struct ifreq *ifr, u32 mode)
+{
+	struct rmnet_ioctl_data_s data = { .u.operation_mode = mode };
+
+	/* Legacy netmgrd passes a null pointer and reads the result in ifreq. */
+	if (!ifr->ifr_data) {
+		ifr->ifr_data = (void *)(unsigned long)mode;
+		return 0;
+	}
+
+	return copy_to_user(ifr->ifr_data, &data, sizeof(data)) ? -EFAULT : 0;
+}
+
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct rmnet_private *p = netdev_priv(dev);
@@ -656,11 +669,8 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_GET_LLP:           /* Get link protocol state */
-		ioctl_data.u.operation_mode = (p->operation_mode &
-				 (RMNET_MODE_LLP_ETH|RMNET_MODE_LLP_IP));
-		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
-			sizeof(struct rmnet_ioctl_data_s)))
-			rc = -EFAULT;
+		rc = rmnet_get_operation_mode(ifr, p->operation_mode &
+				(RMNET_MODE_LLP_ETH | RMNET_MODE_LLP_IP));
 		break;
 
 	case RMNET_IOCTL_SET_QOS_ENABLE:    /* Set QoS header enabled  */
@@ -700,18 +710,12 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
-		ioctl_data.u.operation_mode = (p->operation_mode
-						& RMNET_MODE_QOS);
-		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
-			sizeof(struct rmnet_ioctl_data_s)))
-			rc = -EFAULT;
+		rc = rmnet_get_operation_mode(ifr,
+					     p->operation_mode & RMNET_MODE_QOS);
 		break;
 
 	case RMNET_IOCTL_GET_OPMODE:        /* Get operation mode      */
-		ioctl_data.u.operation_mode = p->operation_mode;
-		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
-			sizeof(struct rmnet_ioctl_data_s)))
-			rc = -EFAULT;
+		rc = rmnet_get_operation_mode(ifr, p->operation_mode);
 		break;
 
 	case RMNET_IOCTL_OPEN:              /* Open transport port     */

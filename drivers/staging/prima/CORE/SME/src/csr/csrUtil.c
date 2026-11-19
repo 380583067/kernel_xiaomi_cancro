@@ -3918,7 +3918,7 @@ csrIsPMFCapabilitiesInRSNMatch( tHalHandle hHal,
            return VOS_FALSE;
        }
        else if (!(*pFilterMFPEnabled) && *pFilterMFPCapable &&
-                (apProfileMFPCapable == 1))
+                apProfileMFPCapable && apProfileMFPRequired)
        {
            VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
            "we don't need PMF connection eventhough both parties are capable");
